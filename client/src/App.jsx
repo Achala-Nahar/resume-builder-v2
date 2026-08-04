@@ -13,11 +13,11 @@ import api from "./configs/api";
 const App = () => {
   const dispatch = useDispatch();
   const getUserData = async () => {
-    const { token } = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
     try {
       if (token) {
         const { data } = await api.get("/users/data", {
-          headers: { Authorization: `bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (data.user) {
           dispatch(login({ token, user: data.user }));

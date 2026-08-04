@@ -9,4 +9,10 @@ export default defineConfig({
       "/api": "http://localhost:3000", // <-- replace 5000 with your backend port
     },
   },
+  // ✅ ADD THIS PART
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/setupTests.js",
+  },
 });
