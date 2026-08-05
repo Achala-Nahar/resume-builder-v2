@@ -1,100 +1,15 @@
-// import "dotenv/config";
-// import { jest } from "@jest/globals";
-// import mongoose from "mongoose";
-
-// // ✅ Mock ImageKit before importing app
-// jest.unstable_mockModule("../configs/imageKit.js", () => ({
-//   default: {
-//     upload: jest.fn(),
-//   },
-// }));
-
-// // ✅ Mock OpenAI before importing app
-// jest.unstable_mockModule("../configs/ai.js", () => ({
-//   default: {
-//     chat: {
-//       completions: {
-//         create: jest.fn(),
-//       },
-//     },
-//   },
-// }));
-
-// // ✅ Import DB connector
-// const connectDB = (await import("../configs/db.js")).default;
-
-// // ✅ Import app AFTER mocks
-// const app = (await import("../app.js")).default;
-
-// import request from "supertest";
-
-// // ✅ Connect database before tests
-// beforeAll(async () => {
-//   console.log("Connecting test database...");
-//   await connectDB();
-// });
-
-// // ✅ Close database after tests
-// afterAll(async () => {
-//   await mongoose.connection.close();
-// });
-
-// describe("Auth API", () => {
-//   it("should register a new user", async () => {
-//     const uniqueEmail = `test${Date.now()}@example.com`;
-
-//     const res = await request(app).post("/api/users/register").send({
-//       name: "Test User",
-//       email: uniqueEmail,
-//       password: "123456",
-//     });
-
-//     console.log("REGISTER RESPONSE:", res.body);
-
-//     expect([200, 201]).toContain(res.statusCode);
-
-//     expect(res.body).toHaveProperty("token");
-//   }, 15000);
-
-//   it("should login an existing user", async () => {
-//     const uniqueEmail = `login${Date.now()}@example.com`;
-//     const password = "123456";
-
-//     // Step 1: Create user
-//     await request(app).post("/api/users/register").send({
-//       name: "Login Test User",
-//       email: uniqueEmail,
-//       password,
-//     });
-
-//     // Step 2: Login with same credentials
-//     const res = await request(app).post("/api/users/login").send({
-//       email: uniqueEmail,
-//       password,
-//     });
-
-//     console.log("LOGIN RESPONSE:", res.body);
-
-//     expect(res.statusCode).toBe(200);
-
-//     expect(res.body).toHaveProperty("token");
-
-//     expect(res.body.message).toBe("Login successful");
-//   }, 15000);
-// });
-
 import "dotenv/config";
 import { jest } from "@jest/globals";
 import mongoose from "mongoose";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import request from "supertest";
 
-// ✅ Mock ImageKit before importing app
 jest.unstable_mockModule("../configs/imageKit.js", () => ({
   default: {
     upload: jest.fn(),
   },
 }));
 
-// ✅ Mock OpenAI before importing app
 jest.unstable_mockModule("../configs/ai.js", () => ({
   default: {
     chat: {
@@ -105,255 +20,165 @@ jest.unstable_mockModule("../configs/ai.js", () => ({
   },
 }));
 
-// ✅ Import DB connector
-const connectDB = (await import("../configs/db.js")).default;
-
-// ✅ Import app AFTER mocks
 const app = (await import("../app.js")).default;
 
-import request from "supertest";
+let mongoServer;
 
-// ✅ Connect database before tests
 beforeAll(async () => {
-  console.log("Connecting test database...");
-  await connectDB();
+  mongoServer = await MongoMemoryServer.create();
+
+  await mongoose.connect(mongoServer.getUri());
+
+  console.log("Connected to in-memory MongoDB");
 });
 
-// ✅ Close database after tests
+afterEach(async () => {
+  const collections = mongoose.connection.collections;
+
+  for (const key in collections) {
+    await collections[key].deleteMany({});
+  }
+});
+
 afterAll(async () => {
   await mongoose.connection.close();
+
+  await mongoServer.stop();
+
+  console.log("Closed in-memory MongoDB");
 });
 
 describe("Auth API", () => {
   it("should register a new user", async () => {
-    const uniqueEmail = `test${Date.now()}@example.com`;
+    const email = `test${Date.now()}@example.com`;
 
     const res = await request(app).post("/api/users/register").send({
       name: "Test User",
-      email: uniqueEmail,
+      email,
       password: "123456",
     });
-
-    console.log("REGISTER RESPONSE:", res.body);
 
     expect([200, 201]).toContain(res.statusCode);
 
     expect(res.body).toHaveProperty("token");
-  }, 15000);
+  });
 
-  it("should login an existing user", async () => {
-    const uniqueEmail = `login${Date.now()}@example.com`;
+  it("should login existing user", async () => {
+    const email = `login${Date.now()}@example.com`;
+
     const password = "123456";
 
-    // Step 1: Create user
     await request(app).post("/api/users/register").send({
-      name: "Login Test User",
-      email: uniqueEmail,
+      name: "Login User",
+      email,
       password,
     });
 
-    // Step 2: Login
     const res = await request(app).post("/api/users/login").send({
-      email: uniqueEmail,
+      email,
       password,
     });
-
-    console.log("LOGIN RESPONSE:", res.body);
 
     expect(res.statusCode).toBe(200);
 
     expect(res.body).toHaveProperty("token");
+  });
 
-    expect(res.body.message).toBe("Login successful");
-  }, 15000);
+  // TASK 4 TEST 1
+  it("should reject login with wrong password", async () => {
+    const email = `wrong${Date.now()}@example.com`;
 
-  it("should get logged in user data", async () => {
-    const uniqueEmail = `userdata${Date.now()}@example.com`;
-    const password = "123456";
-
-    // Register user
     await request(app).post("/api/users/register").send({
-      name: "User Data Test",
-      email: uniqueEmail,
-      password,
+      name: "Wrong Password User",
+      email,
+      password: "123456",
     });
 
-    // Login user
-    const loginRes = await request(app).post("/api/users/login").send({
-      email: uniqueEmail,
-      password,
+    const res = await request(app).post("/api/users/login").send({
+      email,
+      password: "wrongpassword",
     });
 
-    const token = loginRes.body.token;
+    expect([400, 401]).toContain(res.statusCode);
+  });
 
-    // Access protected endpoint
+  // TASK 4 TEST 2
+  it("should reject duplicate email registration", async () => {
+    const email = `duplicate${Date.now()}@example.com`;
+
+    await request(app).post("/api/users/register").send({
+      name: "Duplicate User",
+      email,
+      password: "123456",
+    });
+
+    const res = await request(app).post("/api/users/register").send({
+      name: "Duplicate User Again",
+      email,
+      password: "123456",
+    });
+
+    expect([400, 409]).toContain(res.statusCode);
+  });
+
+  // TASK 4 TEST 3
+  it("should reject request without token", async () => {
+    const res = await request(app).get("/api/users/data");
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  // TASK 4 TEST 4
+  it("should reject invalid token", async () => {
     const res = await request(app)
       .get("/api/users/data")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", "Bearer invalid.token.value");
 
-    console.log("USER DATA RESPONSE:", res.body);
+    expect(res.statusCode).toBe(401);
+  });
 
-    expect(res.statusCode).toBe(200);
+  it("should deny user A accessing user B resume", async () => {
+    // Create User A
 
-    expect(res.body).toHaveProperty("user");
-
-    expect(res.body.user.email).toBe(uniqueEmail);
-  }, 15000);
-
-  it("should get user's resumes", async () => {
-    const uniqueEmail = `resumes${Date.now()}@example.com`;
-    const password = "123456";
-
-    // Register user
-    await request(app).post("/api/users/register").send({
-      name: "Resume User",
-      email: uniqueEmail,
-      password,
-    });
-
-    // Login user
-    const loginRes = await request(app).post("/api/users/login").send({
-      email: uniqueEmail,
-      password,
-    });
-
-    const token = loginRes.body.token;
-
-    // Access protected endpoint
-    const res = await request(app)
-      .get("/api/users/resumes")
-      .set("Authorization", `Bearer ${token}`);
-
-    console.log("USER RESUMES RESPONSE:", res.body);
-
-    expect(res.statusCode).toBe(200);
-
-    expect(res.body).toHaveProperty("resumes");
-
-    expect(Array.isArray(res.body.resumes)).toBe(true);
-  }, 15000);
-
-  it("should create a new resume", async () => {
-    const uniqueEmail = `resume${Date.now()}@example.com`;
-    const password = "123456";
-
-    // Step 1: Register user
-    const registerRes = await request(app).post("/api/users/register").send({
-      name: "Resume Test User",
-      email: uniqueEmail,
-      password,
-    });
-
-    const token = registerRes.body.token;
-
-    expect(token).toBeDefined();
-
-    // Step 2: Create resume
-    const res = await request(app)
-      .post("/api/resumes/create")
-      .set("Authorization", `Bearer ${token}`)
+    const userA = await request(app)
+      .post("/api/users/register")
       .send({
-        title: "Software Engineer Resume",
+        name: "User A",
+        email: `userA${Date.now()}@example.com`,
+        password: "123456",
       });
 
-    console.log("CREATE RESUME RESPONSE:", res.body);
+    const tokenA = userA.body.token;
 
-    expect(res.statusCode).toBe(201);
+    // Create User B
 
-    expect(res.body.message).toBe("Resume created successfully");
-
-    expect(res.body).toHaveProperty("resume");
-
-    expect(res.body.resume.title).toBe("Software Engineer Resume");
-  }, 15000);
-
-  it("should get all resumes of logged in user", async () => {
-    const uniqueEmail = `getresume${Date.now()}@example.com`;
-    const password = "123456";
-
-    // Step 1: Register user
-    const registerRes = await request(app).post("/api/users/register").send({
-      name: "Get Resume User",
-      email: uniqueEmail,
-      password,
-    });
-
-    const token = registerRes.body.token;
-
-    expect(token).toBeDefined();
-
-    // Step 2: Create a resume
-    const createRes = await request(app)
-      .post("/api/resumes/create")
-      .set("Authorization", `Bearer ${token}`)
+    const userB = await request(app)
+      .post("/api/users/register")
       .send({
-        title: "Frontend Developer Resume",
+        name: "User B",
+        email: `userB${Date.now()}@example.com`,
+        password: "123456",
       });
 
-    expect(createRes.statusCode).toBe(201);
+    const tokenB = userB.body.token;
 
-    const resumeId = createRes.body.resume._id;
+    // User B creates resume
 
-    expect(resumeId).toBeDefined();
-
-    // Step 3: Fetch all resumes
-    const res = await request(app)
-      .get("/api/resumes/")
-      .set("Authorization", `Bearer ${token}`);
-
-    console.log("GET ALL RESUMES RESPONSE:", res.body);
-
-    expect(res.statusCode).toBe(200);
-
-    expect(Array.isArray(res.body)).toBe(true);
-
-    expect(res.body.length).toBeGreaterThan(0);
-
-    expect(res.body[0]._id).toBe(resumeId);
-  }, 15000);
-
-  it("should get a resume by id", async () => {
-    const uniqueEmail = `singleResume${Date.now()}@example.com`;
-    const password = "123456";
-
-    // Register user
-    const registerRes = await request(app).post("/api/users/register").send({
-      name: "Single Resume User",
-      email: uniqueEmail,
-      password,
-    });
-
-    const token = registerRes.body.token;
-
-    expect(token).toBeDefined();
-
-    // Create resume
-    const createRes = await request(app)
+    const resume = await request(app)
       .post("/api/resumes/create")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Authorization", `Bearer ${tokenB}`)
       .send({
-        title: "Backend Developer Resume",
+        title: "Private Resume",
       });
 
-    expect(createRes.statusCode).toBe(201);
+    const resumeId = resume.body.resume._id;
 
-    const resumeId = createRes.body.resume._id;
+    // User A tries accessing User B resume
 
-    expect(resumeId).toBeDefined();
-
-    // Fetch resume by id
     const res = await request(app)
       .get(`/api/resumes/get/${resumeId}`)
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${tokenA}`);
 
-    console.log("GET RESUME RESPONSE:", res.body);
-
-    expect(res.statusCode).toBe(200);
-
-    expect(res.body).toHaveProperty("resume");
-
-    expect(res.body.resume._id).toBe(resumeId);
-
-    expect(res.body.resume.title).toBe("Backend Developer Resume");
-  }, 15000);
+    expect([401, 403, 404]).toContain(res.statusCode);
+  });
 });

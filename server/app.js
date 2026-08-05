@@ -11,7 +11,7 @@ const app = express();
 // ✅ CORS FIX (put this BEFORE everything)
 app.use(
   cors({
-    origin: "http://localhost:5174",
+    origin: "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }),
@@ -19,7 +19,6 @@ app.use(
 
 // middlewares
 app.use(express.json());
-app.use(cors());
 
 // routes
 app.use("/api/resumes", resumeRouter);

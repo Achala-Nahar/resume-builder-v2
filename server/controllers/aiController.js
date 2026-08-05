@@ -5,7 +5,25 @@ import ai from "../configs/ai.js";
 // /api/ai/enhance-pro-sum
 export const enhanceProfessionalSummary = async (req, res) => {
   try {
-    const { userContent } = req.body;
+    const { userContent, resumeData } = req.body;
+
+    let content = userContent;
+
+    // 👇 handle wrong request automatically
+    if (!content && resumeData) {
+      try {
+        const parsed = JSON.parse(resumeData);
+        content = parsed.professional_summary;
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid resume data" });
+      }
+    }
+
+    if (!content) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    console.log("BODY:", req.body); // 👈 ADD THIS
+    console.log("USER:", req.user); // 👈 ADD THIS
 
     if (!userContent) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -21,7 +39,7 @@ export const enhanceProfessionalSummary = async (req, res) => {
         },
         {
           role: "user",
-          content: userContent,
+          content: content,
         },
       ],
     });
@@ -38,7 +56,9 @@ export const enhanceJobDescription = async (req, res) => {
     if (!userContent) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
+    // ✅ 👉 ADD THESE LINES HERE
+    console.log("MODEL:", process.env.OPENAI_MODEL);
+    console.log("KEY EXISTS:", !!process.env.OPENAI_API_KEY);
     const response = await ai.chat.completions.create({
       model: process.env.OPENAI_MODEL,
       messages: [
