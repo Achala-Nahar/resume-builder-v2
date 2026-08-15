@@ -7,21 +7,60 @@ const ProfessionalSummaryForm = ({ data, onChange, setResumeData }) => {
   const { token } = useSelector((state) => state.auth);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // const generateSummary = async () => {
+  //   try {
+  //     setIsGenerating(true);
+  //     const prompt = `enhance my professional summary "${data}"`;
+  //     const response = await api.post(
+  //       "/ai/enhance-pro-sum",
+  //       { userContent: prompt },
+  //       { headers: { Authorization: `Bearer ${token}` } },
+  //     );
+  //     setResumeData((prev) => ({
+  //       ...prev,
+  //       professional_summary: response.data.enhancedContent,
+  //     }));
+  //   } catch (error) {
+  //     toast.error(error?.response?.data?.message || error.message);
+  //   } finally {
+  //     setIsGenerating(false);
+  //   }
+  // };
   const generateSummary = async () => {
+    if (!data || !data.trim()) {
+      toast.error("Please enter a professional summary first.");
+      return;
+    }
+
     try {
       setIsGenerating(true);
-      const prompt = `enhance my professional summary "${data}"`;
+
+      const prompt = `Enhance my professional summary:
+
+${data}`;
+
       const response = await api.post(
         "/ai/enhance-pro-sum",
         { userContent: prompt },
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
+
       setResumeData((prev) => ({
         ...prev,
         professional_summary: response.data.enhancedContent,
       }));
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message);
+      console.error("AI enhancement error:", error);
+      console.error("Server response:", error.response?.data);
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to enhance professional summary",
+      );
     } finally {
       setIsGenerating(false);
     }

@@ -2,51 +2,101 @@
 
 import { type } from "node:os";
 import ai from "../configs/ai.js";
+import gemini from "../configs/gemini.js";
 // /api/ai/enhance-pro-sum
+// export const enhanceProfessionalSummary = async (req, res) => {
+//   try {
+//     const { userContent, resumeData } = req.body;
+
+//     let content = userContent;
+
+//     // 👇 handle wrong request automatically
+//     if (!content && resumeData) {
+//       try {
+//         const parsed = JSON.parse(resumeData);
+//         content = parsed.professional_summary;
+//       } catch (err) {
+//         return res.status(400).json({ message: "Invalid resume data" });
+//       }
+//     }
+
+//     if (!content) {
+//       return res.status(400).json({ message: "Missing required fields" });
+//     }
+//     console.log("BODY:", req.body); // 👈 ADD THIS
+//     console.log("USER:", req.user); // 👈 ADD THIS
+
+//     if (!userContent) {
+//       return res.status(400).json({ message: "Missing required fields" });
+//     }
+
+//     const response = await ai.chat.completions.create({
+//       model: process.env.OPENAI_MODEL,
+//       messages: [
+//         {
+//           role: "system",
+//           content:
+//             "You are an expert in resume writing. Your task is to enhance the professional summary of a resume. The summary should be 1-2 sentences also highlighting key skills, experience, and career objectives. Make it compelling and ATS-friendly. and only return text no options or anything else.",
+//         },
+//         {
+//           role: "user",
+//           content: content,
+//         },
+//       ],
+//     });
+//     const enhancedContent = response.choices[0].message.content;
+//     return res.status(200).json({ enhancedContent });
+//   } catch (error) {
+//     return res.status(400).json({ message: error.message });
+//   }
+// };
+
 export const enhanceProfessionalSummary = async (req, res) => {
   try {
-    const { userContent, resumeData } = req.body;
+    const { userContent } = req.body;
 
-    let content = userContent;
+    console.log("===== GEMINI SUMMARY REQUEST =====");
+    console.log("USER:", req.user);
+    console.log("CONTENT:", userContent);
 
-    // 👇 handle wrong request automatically
-    if (!content && resumeData) {
-      try {
-        const parsed = JSON.parse(resumeData);
-        content = parsed.professional_summary;
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid resume data" });
-      }
+    if (!userContent || !userContent.trim()) {
+      return res.status(400).json({
+        message: "Professional summary is required",
+      });
     }
 
-    if (!content) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-    console.log("BODY:", req.body); // 👈 ADD THIS
-    console.log("USER:", req.user); // 👈 ADD THIS
-
-    if (!userContent) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const response = await ai.chat.completions.create({
+    const response = await gemini.models.generateContent({
       model: process.env.OPENAI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert in resume writing. Your task is to enhance the professional summary of a resume. The summary should be 1-2 sentences also highlighting key skills, experience, and career objectives. Make it compelling and ATS-friendly. and only return text no options or anything else.",
-        },
-        {
-          role: "user",
-          content: content,
-        },
-      ],
+      contents: userContent,
+      config: {
+        systemInstruction:
+          "You are an expert resume writer. Enhance the user's professional summary into 1-2 concise, compelling, ATS-friendly sentences. Highlight relevant skills, experience, achievements, and career objectives. Return only the improved professional summary.",
+      },
     });
-    const enhancedContent = response.choices[0].message.content;
-    return res.status(200).json({ enhancedContent });
+
+    const enhancedContent = response.text;
+
+    console.log("===== GEMINI RESPONSE =====");
+    console.log(enhancedContent);
+
+    if (!enhancedContent) {
+      return res.status(500).json({
+        message: "Gemini returned an empty response",
+      });
+    }
+
+    return res.status(200).json({
+      enhancedContent,
+    });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error("===== GEMINI ERROR =====");
+    console.error("Message:", error.message);
+    console.error("Status:", error.status);
+    console.error("Code:", error.code);
+
+    return res.status(error.status || 500).json({
+      message: error.message || "Failed to enhance professional summary",
+    });
   }
 };
 export const enhanceJobDescription = async (req, res) => {
