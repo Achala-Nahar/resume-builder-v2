@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 
+process.env.JWT_SECRET = "test-secret";
 jest.unstable_mockModule("../configs/imageKit.js", () => ({
   default: {
     upload: jest.fn(),
