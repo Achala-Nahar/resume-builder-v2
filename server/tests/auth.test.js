@@ -11,16 +11,6 @@ jest.unstable_mockModule("../configs/imageKit.js", () => ({
   },
 }));
 
-jest.unstable_mockModule("../configs/ai.js", () => ({
-  default: {
-    chat: {
-      completions: {
-        create: jest.fn(),
-      },
-    },
-  },
-}));
-
 const app = (await import("../app.js")).default;
 
 let mongoServer;
