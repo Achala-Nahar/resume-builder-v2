@@ -140,6 +140,7 @@ export const getPublicResumeById = async (req, res) => {
 //   }
 // };
 export const updateResume = async (req, res) => {
+  const image = req.file;
   try {
     const userId = req.user.userId;
 
@@ -150,7 +151,6 @@ export const updateResume = async (req, res) => {
     console.log("FILES:", req.file);
 
     const { resumeData, removeBackground } = req.body;
-    const image = req.file;
 
     // Parse resumeData safely
     let resumeDataCopy =
@@ -204,6 +204,14 @@ export const updateResume = async (req, res) => {
   } catch (error) {
     console.error("UPDATE RESUME ERROR:", error);
     return res.status(400).json({ message: error.message });
+  } finally {
+    if (image?.path) {
+      try {
+        await fs.promises.unlink(image.path);
+      } catch (cleanupError) {
+        console.error("TEMP FILE CLEANUP ERROR:", cleanupError);
+      }
+    }
   }
 };
 
