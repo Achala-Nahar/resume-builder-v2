@@ -8,6 +8,7 @@ const ResumeSchema = new mongoose.Schema(
     template: { type: String, default: "classic" },
     accent_color: { type: String, default: "#3B82F6" },
     professional_summary: { type: String, default: "" },
+    resume_file: { type: String, default: "" },
     skills: [{ type: String }],
     personal_info: {
       image: { type: String, default: "" },
