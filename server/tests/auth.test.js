@@ -63,7 +63,7 @@ describe("Auth API", () => {
     const res = await request(app).post("/api/users/register").send({
       name: "Test User",
       email,
-      password: "123456",
+      password: "12345678",
     });
 
     expect([200, 201]).toContain(res.statusCode);
@@ -72,7 +72,7 @@ describe("Auth API", () => {
 
   it("should login existing user", async () => {
     const email = `login${Date.now()}@example.com`;
-    const password = "123456";
+    const password = "12345678";
 
     await request(app).post("/api/users/register").send({
       name: "Login User",
@@ -95,7 +95,7 @@ describe("Auth API", () => {
     await request(app).post("/api/users/register").send({
       name: "Wrong Password User",
       email,
-      password: "123456",
+      password: "12345678",
     });
 
     const res = await request(app).post("/api/users/login").send({
@@ -112,13 +112,13 @@ describe("Auth API", () => {
     await request(app).post("/api/users/register").send({
       name: "Duplicate User",
       email,
-      password: "123456",
+      password: "12345678",
     });
 
     const res = await request(app).post("/api/users/register").send({
       name: "Duplicate User Again",
       email,
-      password: "123456",
+      password: "12345678",
     });
 
     expect([400, 409]).toContain(res.statusCode);
@@ -146,7 +146,7 @@ describe("Resume API", () => {
       .send({
         name: "User A",
         email: `userA${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const userB = await request(app)
@@ -154,7 +154,7 @@ describe("Resume API", () => {
       .send({
         name: "User B",
         email: `userB${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const tokenA = userA.body.token;
@@ -182,7 +182,7 @@ describe("Resume API", () => {
       .send({
         name: "Update User",
         email: `update${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const token = user.body.token;
@@ -217,7 +217,7 @@ describe("Resume API", () => {
       .send({
         name: "User A",
         email: `updateA${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const userB = await request(app)
@@ -225,7 +225,7 @@ describe("Resume API", () => {
       .send({
         name: "User B",
         email: `updateB${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const tokenA = userA.body.token;
@@ -265,7 +265,7 @@ describe("Resume API", () => {
       .send({
         name: "Upload User",
         email: `upload${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const token = user.body.token;
@@ -307,7 +307,7 @@ describe("AI API", () => {
       .send({
         name: "AI User",
         email: `ai${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const token = user.body.token;
@@ -336,7 +336,7 @@ describe("AI API", () => {
       .send({
         name: "AI Job User",
         email: `aijob${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const token = user.body.token;
@@ -381,7 +381,7 @@ describe("AI API", () => {
       .send({
         name: "Resume AI User",
         email: `resumeai${Date.now()}@example.com`,
-        password: "123456",
+        password: "12345678",
       });
 
     const token = user.body.token;
