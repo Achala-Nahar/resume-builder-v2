@@ -2,103 +2,155 @@ import User from "../Models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Resume from "../Models/resume.js";
-// controller for user registration
-// POST: /api/users/register
 
 const generatetoken = (userId) => {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
+
   return token;
 };
+
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // check if required fields are present
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Missing required fields" });
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Name, email and password are required",
+      });
     }
 
-    // check if user already exists
-    const user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: "User already exists" });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({
+        message: "Please provide a valid email address",
+      });
     }
-    //create new user
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters long",
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      return res.status(400).json({
+        message: "User already exists",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
     });
 
-    // return success message
     const token = generatetoken(newUser._id);
+
     newUser.password = undefined;
 
-    return res
-      .status(201)
-      .json({ message: "User created successfully", token, user: newUser });
+    return res.status(201).json({
+      message: "User created successfully",
+      token,
+      user: newUser,
+    });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error("REGISTER ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to register user",
+    });
   }
 };
-// controller for user login
-// POST: /api/users/login
 
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // check if user exists
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-    // check if password was correct.
-    if (!user.comparePassword(password)) {
-      return res.status(400).json({ message: "Invalid email or password" });
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
     }
 
-    // return success message
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    const passwordMatches = await user.comparePassword(password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
     const token = generatetoken(user._id);
+
     user.password = undefined;
 
-    return res.status(200).json({ message: "Login successful", token, user });
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user,
+    });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to login",
+    });
   }
 };
 
-// controller for getting user by id
-// GET: /api/users/data
 export const getUserById = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    // check if user exists
     const user = await User.findById(userId);
+
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
-    //return user.
+
     user.password = undefined;
+
     return res.status(200).json({ user });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error("GET USER ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch user",
+    });
   }
 };
 
-// controller for getting user resumes
-// GET: /api/users/resumes
 export const getUserResumes = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // return user resumes
+
     const resumes = await Resume.find({ userId });
+
     return res.status(200).json({ resumes });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error("GET USER RESUMES ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch resumes",
+    });
   }
 };
