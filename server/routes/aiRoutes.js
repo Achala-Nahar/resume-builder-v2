@@ -1,5 +1,7 @@
 import express from "express";
 import protect from "../middlewares/authMiddleware.js";
+import aiRateLimiter from "../middlewares/aiRateLimiter.js";
+
 import {
   enhanceJobDescription,
   enhanceProfessionalSummary,
@@ -7,8 +9,13 @@ import {
 } from "../controllers/aiController.js";
 
 const aiRouter = express.Router();
-aiRouter.post("/enhance-pro-sum", protect, enhanceProfessionalSummary);
-aiRouter.post("/enhance-job-desc", protect, enhanceJobDescription);
-aiRouter.post("/upload-resume", protect, uploadResume);
+
+// Authenticate first, then apply the shared AI request limit.
+aiRouter.use(protect);
+aiRouter.use(aiRateLimiter);
+
+aiRouter.post("/enhance-pro-sum", enhanceProfessionalSummary);
+aiRouter.post("/enhance-job-desc", enhanceJobDescription);
+aiRouter.post("/upload-resume", uploadResume);
 
 export default aiRouter;
