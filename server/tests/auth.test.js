@@ -9,12 +9,14 @@ import path from "path";
 process.env.JWT_SECRET = "test-secret";
 process.env.GEMINI_MODEL = "test-model";
 
+const mockGenerateContent = jest.fn();
+
 jest.unstable_mockModule("../configs/gemini.js", () => ({
-  default: {
+  default: () => ({
     models: {
-      generateContent: jest.fn(),
+      generateContent: mockGenerateContent,
     },
-  },
+  }),
 }));
 
 jest.unstable_mockModule("../configs/imageKit.js", () => ({
@@ -27,7 +29,11 @@ jest.unstable_mockModule("../configs/imageKit.js", () => ({
 }));
 
 const app = (await import("../app.js")).default;
-const { default: gemini } = await import("../configs/gemini.js");
+const gemini = {
+  models: {
+    generateContent: mockGenerateContent,
+  },
+};
 
 let mongoServer;
 
@@ -398,5 +404,101 @@ describe("AI API", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("resumeId");
     expect(gemini.models.generateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject invalid JSON returned by Gemini", async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: "{ invalid json",
+    });
+
+    const user = await request(app)
+      .post("/api/users/register")
+      .send({
+        name: "Invalid AI User",
+        email: `invalidai${Date.now()}@example.com`,
+        password: "12345678",
+      });
+
+    const res = await request(app)
+      .post("/api/ai/upload-resume")
+      .set("Authorization", `Bearer ${user.body.token}`)
+      .send({
+        title: "Invalid AI Resume",
+        resumeText: "Software developer skilled in JavaScript.",
+      });
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body.message).toBe(
+      "AI returned invalid JSON. Please try again.",
+    );
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject invalid resume data returned by Gemini", async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify({
+        skills: "JavaScript",
+      }),
+    });
+
+    const user = await request(app)
+      .post("/api/users/register")
+      .send({
+        name: "Invalid Schema User",
+        email: `invalidschema${Date.now()}@example.com`,
+        password: "12345678",
+      });
+
+    const res = await request(app)
+      .post("/api/ai/upload-resume")
+      .set("Authorization", `Bearer ${user.body.token}`)
+      .send({
+        title: "Invalid Schema Resume",
+        resumeText: "Software developer skilled in JavaScript.",
+      });
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body.message).toBe(
+      "AI returned resume data in an invalid format. Please try again.",
+    );
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("should rate-limit AI requests per user", async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: "Improved professional summary.",
+    });
+
+    const user = await request(app)
+      .post("/api/users/register")
+      .send({
+        name: "Rate Limit User",
+        email: `ratelimit${Date.now()}@example.com`,
+        password: "12345678",
+      });
+
+    const token = user.body.token;
+
+    let lastResponse;
+
+    for (let i = 0; i < 21; i++) {
+      lastResponse = await request(app)
+        .post("/api/ai/enhance-pro-sum")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          userContent: "Software developer with JavaScript skills.",
+        });
+
+      if (i < 20) {
+        expect(lastResponse.statusCode).toBe(200);
+      }
+    }
+
+    expect(lastResponse.statusCode).toBe(429);
+    expect(lastResponse.body.message).toBe(
+      "AI request limit reached. Please try again in 15 minutes.",
+    );
+
+    expect(mockGenerateContent).toHaveBeenCalledTimes(20);
   });
 });
